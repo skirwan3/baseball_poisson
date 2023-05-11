@@ -1,0 +1,113 @@
+---
+title: "Regression Project"
+author: "Stuart Kirwan"
+date: "2023-04-16"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Importing packages
+library(car)
+library(caret)
+```
+
+```{r}
+# set working directory
+setwd('/Users/stuartkirwan/Documents/Graduate_School/ISyE_6414/Project')
+
+# import data
+ds <- read.csv('Braves_Data.csv')
+
+head(ds)
+```
+
+
+```{r}
+# creating Poisson Regression for Runs
+m1 = glm(R ~ X1B + X2B + X3B + HR + BB + SO + OBP + SLG + OPS, family="poisson", data=ds)
+summary(m1)
+
+# Investigating multicollinearity using VIF
+vif(m1)
+```
+
+
+```{r}
+# Removing OBP, SLG and OPS from model
+m1 = glm(R ~ X1B + X2B + X3B + HR + BB + SO, family="poisson", data=ds)
+summary(m1)
+
+# Investigating multicollinearity using VIF
+vif(m1)
+```
+
+```{r}
+# test for overall significance
+# Values are obtained from the null and residual deviance from model output above
+1-pchisq((2314.37-782.78),(1029-1023))
+```
+
+```{r}
+# extracting coefficients
+coef <- coef(m1)
+
+# calculating Rate Ratios
+RateRatios <- exp(coef)
+RateRatios
+
+#Interpretation: a one unit increase in home runs is associated with an approximately 26.9% increase in the runs scored
+```
+
+```{r}
+# creating Poisson Regression for Runs
+m2 = glm(pitchR ~ pitchBB + pitchSO + pitch1B + pitch2B + pitch3B, family="poisson", data=ds)
+summary(m2)
+
+# Investigating multicollinearity using VIF
+vif(m2)
+```
+
+```{r}
+# test for overall significance
+# Values are obtained from the null and residual deviance from model output above
+1-pchisq((2377.7-1343.8),(1029-1024))
+```
+
+```{r}
+# extracting coefficients
+coef2 <- coef(m2)
+
+# calculating Rate Ratios
+RateRatios2 <- exp(coef2)
+RateRatios2
+
+#Interpretation: a one unit increase in singles allowed is associated with an approximately 10.5% increase in the runs allowed.
+```
+
+```{r}
+# Evaluating model performance using new data from 2023 season (only 15 games played so far)
+# import data
+new_ds <- read.csv('Braves_Data_2023.csv')
+
+# predicted runs scored and runs allowed
+new_ds$pred_pitchR <- predict(m2,new_ds)
+new_ds$pred_R <- predict(m1,new_ds)
+
+# creating run differential and binary win column
+new_ds$pred_RD <- new_ds$pred_R - new_ds$pred_pitchR
+new_ds$pred_win <- ifelse(new_ds$pred_RD >= 0, 1, 0)
+
+pred_win <- factor(new_ds$pred_win, levels = c(1,0))
+actual_win <- factor(new_ds$Win, levels = c(1,0))
+
+# Confusion Matrix
+win_cm <- confusionMatrix(data=pred_win, reference=actual_win)
+win_cm
+```
